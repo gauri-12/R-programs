@@ -1,0 +1,257 @@
+---
+title: "Classification"
+output: word_document
+---
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#########!!!!!!!!!!!!!!!!!!K NEAREST NEIGHBORS METHOD TO PREDICT PROFITABILITY!!!!!!!#######
+data <- read.csv("~/Desktop/credit3.csv")
+data$AMOUNT_REQUESTED<-gsub(pattern=",",replacement="",x=data$AMOUNT_REQUESTED)
+
+data[,1] <- NULL#remove obs
+data[,21] <- NULL#credit_ext
+#head(data)
+#-----------------------creation of categorical variables
+profitable <- ifelse(data$NPV > 0,1,0)
+data$profitable <- factor(profitable,levels = c(0,1))
+#head(data)
+#summary(data)
+data[,21] <- NULL#npv
+data <- data[complete.cases(data),]
+library(dummies)
+#-----------------------creation of dummy variables
+data$CHK_ACCT <- as.factor(data$CHK_ACCT)
+data$SAV_ACCT <- as.factor(data$SAV_ACCT)
+data$HISTORY <- as.factor(data$HISTORY)
+data$JOB <- as.factor(data$JOB)
+data$TYPE <- as.factor(data$TYPE)
+data <- dummy.data.frame(data, c("CHK_ACCT", "SAV_ACCT", "HISTORY", "JOB", "TYPE"))
+
+#-----------------------convert factors to numeric
+data$AMOUNT_REQUESTED <- as.numeric(data$AMOUNT_REQUESTED)  
+str(data)
+
+###normalization
+# Now we need to normalize each variable
+normalize <- function(x){ 
+  a <- mean(x) 
+  b <- sd(x) 
+  (x - a)/(b) 
+} 
+
+data[,1:40] <- apply(data[,1:40], 2, normalize)
+
+library(caret)
+set.seed(12345)
+inTrain <- sample(nrow(data), 0.7*nrow(data))
+data.train <- data.frame(data[inTrain,])
+data.val <- data.frame(data[-inTrain,])
+#class(data.train$profitable)
+library(class)
+str(data.train)
+train_input <- as.matrix(data.train[,-41])
+train_output <- as.vector(data.train[,41])
+validate_input <- as.matrix(data.val[,-41])
+
+kmax <- 15
+ER1 <- rep(0,kmax)
+ER2 <- rep(0,kmax)
+#
+for (i in 1:kmax){
+  prediction <- knn(train_input, train_input,train_output, k=i)
+  prediction2 <- knn(train_input, validate_input,train_output, k=i)
+  #print(i)
+  # The confusion matrix for training data is:
+  CM1 <- table(prediction, data.train$profitable)
+  # The training error rate is:
+  ER1[i] <- (CM1[1,2]+CM1[2,1])/sum(CM1)*100
+  # The confusion matrix for validation data is: 
+  CM2 <- table(prediction2, data.val$profitable)
+  ER2[i] <- (CM2[1,2]+CM2[2,1])/sum(CM2)*100
+}
+z <- which.min(ER2)
+cat("\nMinimum Validation Error k:", z,"for seed 12345")
+
+plot(c(1,kmax),c(0,50),type="n", xlab="k",ylab="Error Rate")
+lines(ER1,col="red")
+lines(ER2,col="blue")
+legend(9, 40, c("Training","Validation"),lty=c(1,1), col=c("red","blue"))
+
+#
+# Scoring at optimal k
+prediction <- knn(train_input, train_input,train_output, k=z)
+prediction2 <- knn(train_input, validate_input,train_output, k=z)
+CM1
+CM2
+error_rate_0 <- (CM2[1,2]/sum(CM2[1,]))
+cat("Error rate for class 0:", error_rate_0)
+
+error_rate_1 <- (CM2[2,1]/sum(CM2[2,]))
+cat("Error rate for class 1:", error_rate_1)
+
+#----------------------Repeating step 4 ------------!!!!!!!!!!!!
+#kmax <- 15
+knn_calc <- function(seed){
+  set.seed(seed)
+  inTrain <- sample(nrow(data), 0.7*nrow(data))
+  data.train <- data.frame(data[inTrain,])
+  data.val <- data.frame(data[-inTrain,])
+  #class(data.train$profitable)
+  library(class)
+  train_input <- as.matrix(data.train[,-41])
+  train_output <- as.vector(data.train[,41])
+  validate_input <- as.matrix(data.val[,-41])
+  
+  kmax <- 15
+  ER1 <- rep(0,kmax)
+  ER2 <- rep(0,kmax)
+  #
+  for (i in 1:kmax){
+    prediction.train <- knn(train_input, train_input,train_output, k=i)
+    prediction.val <- knn(train_input, validate_input,train_output, k=i)
+    
+    # The confusion matrix for training data is:
+    CM1 <- table(prediction.train, data.train$profitable)
+    # The training error rate is:
+    ER1[i] <- (CM1[1,2]+CM1[2,1])/sum(CM1)*100
+    # The confusion matrix for validation data is: 
+    CM2 <- table(prediction.val, data.val$profitable)
+    ER2[i] <- (CM2[1,2]+CM2[2,1])/sum(CM2)*100
+  }
+  z <- which.min(ER2)
+  cat("\nMinimum Validation Error",ER2[i],"k:", z,"for seed",seed)
+}
+
+##############!!!!FOR LOOP !!!!!!!######
+for(j in 1:10){
+  knn_calc(j)
+}
+
+
+#########!!!!!!!!!!!!!!!!!!NAIVE BAYES METHOD TO PREDICT PROFITABILITY!!!!!!!#######
+data.naive <- read.csv("~/Desktop/credit3.csv")
+data.naive$AMOUNT_REQUESTED<-gsub(pattern=",",replacement="",x=data.naive$AMOUNT_REQUESTED)
+
+data.naive[,1] <- NULL
+data.naive[,21] <- NULL#credit_ext
+#head(data)
+#-----------------------creation of categorical variables
+profitable <- ifelse(data.naive$NPV > 0,1,0)
+data.naive$profitable <- factor(profitable,levels = c(0,1))
+#head(data)
+summary(data.naive)
+data.naive[,21] <- NULL#npv
+
+
+data.naive[,2:4] <- lapply(data.naive[,2:4],factor)
+data.naive[,6:19] <- lapply(data.naive[,6:19],factor)
+#-----------------------convert factors to numeric
+data.naive$AMOUNT_REQUESTED <- as.numeric(data.naive$AMOUNT_REQUESTED) 
+
+##!!!!!!!--------Split the data----!!!!!!!!
+library(caret)
+set.seed(12345)
+inTrain <- sample(nrow(data.naive), 0.7*nrow(data.naive))
+data.naive.train <- data.frame(data.naive[inTrain,])
+data.naive.val <- data.frame(data.naive[-inTrain,])
+
+library(e1071)
+model <- naiveBayes(profitable~., data=data.naive.train)
+model
+
+prediction <- predict(model, newdata = data.naive.val[,-21])
+table(data.naive.val$profitable,prediction,dnn=list('actual','predicted'))
+
+df <- data.frame(AGE=27,CHK_ACCT="1",SAV_ACCT="0",NUM_CREDITS="1",DURATION=12,HISTORY="1",PRESENT_RESIDENT="1",EMPLOYMENT="1",JOB="2",NUM_DEPENDENTS="0",RENT="1",INSTALL_RATE="3",GUARANTOR="0",OTHER_INSTALL="0",OWN_RES="0",TELEPHONE="1",FOREIGN="0",REAL_ESTATE="0",TYPE="2",AMOUNT_REQUESTED=4500)
+app_pred <- predict(model,newdata=df,type="raw")
+print(app_pred)
+
+
+
+#########!!!!!!!!!!!!!!!!!!LOGISTIC REGRESSION METHOD!!!!!!!#######
+#####LOGISTIC MODEL
+data.log <- read.csv("~/Desktop/TERM B/Data Mining/Assignment/Assignment5/credit3.csv")
+data.log$AMOUNT_REQUESTED<-gsub(pattern=",",replacement="",x=data.log$AMOUNT_REQUESTED)
+
+data.log[,1] <- NULL
+data.log[,21] <- NULL#credit_ext
+#head(data)
+#-----------------------creation of categorical variables
+profitable <- ifelse(data.log$NPV > 0,1,0)
+data.log$profitable <- factor(profitable,levels = c(0,1))
+#head(data)
+summary(data.log)
+data.log[,21] <- NULL#npv
+
+
+data.log[,2:3] <- lapply(data.log[,2:3],factor)
+data.log$HISTORY <- as.factor(data.log$HISTORY)
+data.log$JOB <- as.factor(data.log$JOB)
+data.log$TYPE <- as.factor(data.log$TYPE)
+#-----------------------convert factors to numeric
+data.log$AMOUNT_REQUESTED <- as.numeric(data.log$AMOUNT_REQUESTED) 
+
+##!!!!!!!--------Split the data----!!!!!!!!
+library(caret)
+set.seed(12345)
+inTrain <- sample(nrow(data.log), 0.7*nrow(data.log))
+data.log.train <- data.frame(data.log[inTrain,])
+data.log.test <- data.frame(data.log[-inTrain,])
+
+fit1 <- glm(profitable~AGE+CHK_ACCT+SAV_ACCT+NUM_CREDITS+DURATION+HISTORY+PRESENT_RESIDENT+EMPLOYMENT+JOB+NUM_DEPENDENTS+RENT+INSTALL_RATE+GUARANTOR+OTHER_INSTALL+OWN_RES+TELEPHONE+FOREIGN+REAL_ESTATE+TYPE+AMOUNT_REQUESTED,data=data.log.train,family="binomial")
+summary(fit1)
+
+actual <- data.log.test$profitable
+##generate predictions 
+predicted <- predict(fit1,newdata=data.log.test,type="response")
+
+cutoff <- 0.5
+## Generate class predictions using cutoff value for in sample
+Predicted_class <- ifelse(predicted > cutoff, "Profitable", "Not profitable")
+
+(confusion <- table(actual, Predicted_class))
+
+##!!!!!!!!!!!----------------------ROC CURVE----------------------------!!!!!!!!!!!!!!##
+#######Processing for ROC for KNN
+# Now we compute the roc curve for k=15. 
+prediction.knn <- knn(train_input, validate_input, train_output, k=z, prob=T)
+predicted.probability <- attr(prediction.knn, "prob")
+# This unfortunately returns the proportion for the winning class 
+predicted.probability <- ifelse(prediction.knn ==1, predicted.probability, 1-predicted.probability)
+#
+
+########Processing for ROC for Naive Bayes
+predicted.probability.naive <- predict(model, newdata = data.naive.val[,-21], type="raw")
+##done for obtaining class probabilities
+# The first column is class 0, the second is class 1
+prob <- predicted.probability.naive[,2]
+
+library(ROCR)
+pred <- prediction(predicted.probability, data.val$profitable)
+perf <- performance(pred,"tpr","fpr")
+
+pred2 <- prediction(prob,data.naive.val$profitable)
+perf2 <- performance(pred2,"tpr","fpr")
+
+pred3 <- prediction(predicted,data.log.test$profitable)
+perf3 <- performance(pred3,"tpr","fpr")
+
+plot(perf, col="red", main="ROC CURVES")
+plot(perf2, add=TRUE, col="blue")
+plot(perf3, add=TRUE, col="green")
+abline(a=0, b= 1, lty=2)
+## Add Legend
+legend("bottomright", c("KNN", "Naive Bayes","Logistic"), lty=1, 
+       col = c("red", "blue","green"), bty="n")
+
+
+
+
+
+```
+
+
+
+
