@@ -1,1 +1,31 @@
+## fit a regression model 
+knitr::opts_chunk$set(echo = TRUE)
+airline <- read.csv("/Users/gaurirajgopal/Desktop/Rprogramming/AirlineDataV2.csv")
+fit <- lm(FARE~VACATION+GATE+SW+SLOT+COUPON+NEW+HI+S_INCOME+E_INCOME+S_POP+E_POP+DISTANCE+PAX,data=airline)
+summary(fit)
 
+## predict fare of a leg that has COUPON = 1, NEW = 3, VACATION = No, SW = No, HI =6000, S_INCOME = $2000, E_INCOME = $2000, S_POP = 4,000,000, E_POP=7,150,000, SLOT=Free and GATE = Constrained, DISTANCE = 1000, and PAX = 6000
+new <- data.frame(COUPON=1,NEW=3,VACATION="No",SW="No",HI=6000,S_INCOME=2000,E_INCOME=2000,S_POP=4000000,E_POP=7150000,SLOT="Free",GATE="Constrained",DISTANCE=1000,PAX=6000)
+pred <- predict(fit,new)
+pred
+
+##!!!!!!!!Exploratory analysis!!!!!!!!!!!!!!!!##
+##Pairwise scatterplot of all numerical variables in dataset
+da <- sapply(airline,is.numeric)
+pairs(airline[,da])
+
+
+## Scatterplot of FARE (Y-axis) and DISTANCE (X-axis). Use different colors or symbols to distinguish routes where Southwest is present
+plot(airline$DISTANCE,airline$FARE, col=c("red","green"))
+legend("topright",legend=levels(airline$SW),col=c("red","green"),pch=1)
+
+##correlations between the various variables
+numdata <- airline[,sapply(airline,is.numeric)]
+dat <- na.omit(numdata)
+correl <-cor(dat,y=NULL)
+correl
+
+### adding interaction variables in the model
+##A senior consultant in the airline industry has indicated that the presence of Southwest on Vacation routes has been driving prices down on these legs. Add this domain knowledge to your regression model and run a new multivariable linear regression
+fitint <- lm(FARE~VACATION+GATE+SW+SLOT+COUPON+NEW+HI+S_INCOME+E_INCOME+S_POP+E_POP+DISTANCE+PAX+SW*VACATION,data=airline)
+summary(fitint)
