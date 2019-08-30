@@ -1,0 +1,120 @@
+---
+title: "IA2"
+output: word_document
+---
+
+```{r setup, include=TRUE}
+  knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(readr)
+
+##DATA PREPARATION
+setwd("/Users/gaurirajgopal/Desktop/TERM B/Data Mining/Assignment2")
+data <-read.csv('VoterPref.csv')
+#data$PREFERENCE
+modified<-na.omit(data)
+summary(modified)
+
+# Suppose we want against to be the success class
+modified$PREFERENCE <- factor(modified$PREFERENCE,levels=c("For","Against"))
+#
+# Linear probability model requires a numeric dummy variable
+# With the following, for gets coded as 0 and against as 1
+
+modified$NPREFERENCE <- as.numeric(modified$PREFERENCE)-1
+
+#modified
+## 70% of the sample size
+smp_size <- floor(0.70 * nrow(modified))
+smp_size
+#creates a value to divide the data into a train and a test set 
+## set the seed to make your partition reproducible
+set.seed(71923) #ensures same random numbers a generated always
+train_ind <- sample(seq_len(nrow(modified)), size = smp_size)
+#randomly identifies rows equal to the sample size
+#row numbers are stored in train_ind
+train <- modified[train_ind, ] #creates a training dataset with row numbers stored in train_ind
+test <- modified[-train_ind, ]#creates test dataset
+train
+#data
+
+##DATA PREPROCESSING
+# Boxplot of INCOME by PREFERENCE TenYearCHD 
+ggplot(train,aes(x=PREFERENCE, y=INCOME, fill=PREFERENCE))+geom_boxplot()
+# Boxplot of AGE by Car PREFERENCE 
+ggplot(train,aes(x=PREFERENCE, y=AGE, fill=PREFERENCE))+geom_boxplot()
+
+##proportion
+table(train$PREFERENCE)/nrow(train)
+#two way table
+table(train$GENDER,train$PREFERENCE)
+
+#####LINEAR MODEL
+fit <- lm(NPREFERENCE~AGE+GENDER+INCOME,data=train)
+summary(fit)
+actual <- train$NPREFERENCE
+##generate predictions 
+predicted <- predict(fit,type="response")
+error<-actual-predicted
+avgerr <- mean(error)
+avgerr
+rmse <- sqrt(mean((error)^2))
+rmse
+mae <- mean(abs(error))
+mae
+
+##out of sample
+actual_out <- test$NPREFERENCE
+predicted_out <- predict(fit, newdata=test, type="response")
+error_out<-actual_out - predicted_out
+avgerr_out <- mean(error_out)
+avgerr_out
+rmse_out <- sqrt(mean((error_out)^2))
+rmse_out
+mae_out <- mean(abs(error_out))
+mae_out
+
+cutoff <- 0.5
+## Generate class predictions using cutoff value for in sample
+Predicted_class <- ifelse(predicted > cutoff, "Against", "For")
+
+prop.table(confusion <- table(actual, Predicted_class))
+
+##Generate class predictions using cutoff value for out sample
+Predicted_class_out <- ifelse(predicted_out > cutoff, "Against", "For")
+
+prop.table(confusion <- table(actual_out, Predicted_class_out))
+
+#####LOGISTIC MODEL
+fit1 <- glm(NPREFERENCE~AGE+GENDER+INCOME,data=train,family="binomial")
+summary(fit1)
+
+actual <- train$NPREFERENCE
+##generate predictions 
+predicted <- predict(fit1,type="response")
+error<-actual-predicted
+
+##out of sample
+actual_out <- test$NPREFERENCE
+predicted_out <- predict(fit1, newdata=test, type="response")
+error_out<-actual_out - predicted_out
+
+cutoff <- 0.5
+## Generate class predictions using cutoff value for in sample
+Predicted_class <- ifelse(predicted > cutoff, "Against", "For")
+
+prop.table(confusion <- table(actual, Predicted_class))
+
+##Generate class predictions using cutoff value for out sample
+Predicted_class_out <- ifelse(predicted_out > cutoff, "Against", "For")
+
+prop.table(confusion <- table(actual_out, Predicted_class_out))
+df=data.frame(AGE=36,INCOME=70.0,GENDER="F",PREFERENCE="Against")
+df
+head(train)
+fem <- predict(fit1,newdata=df,type = "response")
+fem
+
+
+```
+
