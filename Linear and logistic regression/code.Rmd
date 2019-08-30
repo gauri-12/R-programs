@@ -1,7 +1,3 @@
----
-title: "IA2"
-output: word_document
----
 
 ```{r setup, include=TRUE}
   knitr::opts_chunk$set(echo = TRUE)
